@@ -1,0 +1,39 @@
+ssh -i C:\Users\User\.ssh\ano_default_key -l admin 158.160.130.161
+apt install python3.12-venv
+python3 -m venv whisper-live-env
+pip install faster-whisper
+
+cd WhisperLive/
+source whisper-live-env/bin/activate
+python3 run_server.py --port 9090 --backend faster_whisper -fw models/
+
+# no sudo for docker
+sudo groupadd docker
+sudo usermod -aG docker admin
+newgrp docker
+
+# faster-whisper-server
+sudo docker run \
+  --publish 8000:8000 \
+  --volume ~/.cache/huggingface:/root/.cache/huggingface \
+  --env-file .env \
+  fedirz/faster-whisper-server:local
+
+sudo docker run \
+  --publish 8000:8000 \
+  --volume ~/.cache/huggingface:/root/.cache/huggingface \
+  --env-file .env \
+  faster-whisper-server:local
+
+# docker kill alias
+sudo docker kill $(sudo docker ps -q)
+alias kill_docker='sudo docker kill $(sudo docker ps -q)'
+source ~/.bashrc
+
+git clone https://github.com/fedirz/faster-whisper-server.git
+cd faster-whisper-server
+sudo docker build -t faster-whisper-server:local -f Dockerfile.cpu .
+sudo apt install docker-buildx
+
+docker run --publish 8000:8000 --volume ~/.cache/huggingface:/root/.cache/huggingface faster-whisper-server:local
+grep docker /etc/group
