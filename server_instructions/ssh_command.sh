@@ -21,10 +21,22 @@ git clone https://github.com/tony-pitchblack/faster-whisper-server
 cd faster-whisper-server
 git checkout truncated-confirmed-sending
 
+# GIT RESOLVE CONFLICTS POLICY
+git config --global pull.rebase true
+
 # BUILD
 cd faster-whisper-server/ && \
-	sudo docker build -t faster-whisper-server:local -f Dockerfile.cpu . --rm \
-	&& cd ..
+git pull origin master && \
+git checkout master && \
+sudo docker build -t faster-whisper-server:local -f Dockerfile.cpu . --rm \
+&& cd ..
+
+# BUILD
+cd faster-whisper-server/ && \
+git pull origin truncated-confirmed-sending && \
+git checkout truncated-confirmed-sending && \
+sudo docker build -t faster-whisper-server:local-truncated -f Dockerfile.cpu . --rm \
+&& cd ..
 
 # RUN
 sudo docker run \
