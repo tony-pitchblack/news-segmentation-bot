@@ -33,5 +33,5 @@ Pin-Priority: 700
 EOF
 
 # Install chromium and chromium-driver
-apt-get update
-apt-get install chromium chromium-driver
+apt-get update -y
+apt-get install chromium chromium-driver -y
