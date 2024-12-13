@@ -134,7 +134,7 @@ if __name__ == '__main__':
     script_dir = Path(script_dir)
 
     # Path to the .env file in the same directory as the script
-    os.makedirs(script_dir / 'configs' )
+    os.makedirs(script_dir / 'configs', exist_ok=True)
     env_file_path = script_dir / 'configs' / "general.env"
 
     # Write to the .env file
