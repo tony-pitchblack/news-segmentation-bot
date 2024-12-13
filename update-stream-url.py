@@ -106,6 +106,7 @@ import re
 
 @retry_on_failure(use_seleniumwire=True)
 def update_stream_url():
+    print('Loading landing page...')
     landing_url = "https://www.m24.ru/"
     driver.get(landing_url)
     urls = [req.url for req in driver.requests]
@@ -121,19 +122,23 @@ def update_stream_url():
     return news_url
 
 import os
+from pathlib import Path
 
 if __name__ == '__main__':
+
     restart_driver(use_seleniumwire=True)
     news_url = update_stream_url()
 
     # Get the directory where the script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = Path(script_dir)
 
     # Path to the .env file in the same directory as the script
-    env_file_path = os.path.join(script_dir, ".env")
+    os.makedirs(script_dir / 'configs' )
+    env_file_path = script_dir / 'configs' / "general.env"
 
     # Write to the .env file
     with open(env_file_path, "w") as f:
         f.write(f"NEWS_URL={news_url}\n")
     
-    print("NEWS_URL updated in .env")
+    print("NEWS_URL updated in configs/general.env")

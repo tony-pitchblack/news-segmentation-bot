@@ -1,4 +1,4 @@
-venv
+configs
 .env
 
 .DS_Store
