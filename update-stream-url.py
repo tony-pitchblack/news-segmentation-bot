@@ -105,7 +105,7 @@ def retry_on_failure(use_seleniumwire=False):
 import re
 
 @retry_on_failure(use_seleniumwire=True)
-def update_news_url():
+def update_stream_url():
     landing_url = "https://www.m24.ru/"
     driver.get(landing_url)
     urls = [req.url for req in driver.requests]
@@ -122,7 +122,7 @@ def update_news_url():
 
 if __name__ == '__main__':
     restart_driver(use_seleniumwire=True)
-    news_url = update_news_url()
+    news_url = update_stream_url()
 
     with open(".env", "w") as f:
         f.write(f"NEWS_URL={news_url}\n")
