@@ -120,11 +120,20 @@ def update_stream_url():
     news_url = matched_urls.pop()
     return news_url
 
+import os
+
 if __name__ == '__main__':
     restart_driver(use_seleniumwire=True)
     news_url = update_stream_url()
 
-    with open(".env", "w") as f:
+    # Get the directory where the script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Path to the .env file in the same directory as the script
+    env_file_path = os.path.join(script_dir, ".env")
+
+    # Write to the .env file
+    with open(env_file_path, "w") as f:
         f.write(f"NEWS_URL={news_url}\n")
     
     print("NEWS_URL updated in .env")
