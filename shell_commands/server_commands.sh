@@ -44,6 +44,8 @@ sudo docker run \
   --volume ~/.cache/huggingface:/root/.cache/huggingface \
   --env-file .env \
   faster-whisper-server:local
+  # faster-whisper-server:local-truncated
+  # faster-whisper-server:websocket-debug
 
 # ALIAS
 sudo docker kill $(sudo docker ps -q)
