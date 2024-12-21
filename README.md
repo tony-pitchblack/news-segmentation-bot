@@ -1,1 +1,2 @@
-News segmentation bot (work in progress)
+# News segmentation bot
+*Work in progress...*
