@@ -1,5 +1,12 @@
+# general
 setuptools
+
+# for update-stream-url.py
 selenium==4.27.1
 selenium-wire==5.1.0
 blinker==1.7.0
 websocat-1.13.0
+
+# for online-segmentation.py
+websockets
+python-dotenv

@@ -43,7 +43,8 @@ sudo docker run \
   --publish 8000:8000 \
   --volume ~/.cache/huggingface:/root/.cache/huggingface \
   --env-file .env \
-  faster-whisper-server:local
+  fedirz/faster-whisper-server:latest-cpu
+  # faster-whisper-server:local
   # faster-whisper-server:local-truncated
   # faster-whisper-server:websocket-debug
 
