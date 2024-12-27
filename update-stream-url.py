@@ -118,8 +118,8 @@ def update_stream_url():
 
     matched_urls = set(matched_urls)
     assert len(matched_urls) == 1
-    news_url = matched_urls.pop()
-    return news_url
+    STREAM_URL = matched_urls.pop()
+    return STREAM_URL
 
 import os
 from pathlib import Path
@@ -127,7 +127,7 @@ from pathlib import Path
 if __name__ == '__main__':
 
     restart_driver(use_seleniumwire=True)
-    news_url = update_stream_url()
+    STREAM_URL = update_stream_url()
 
     # Get the directory where the script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -139,6 +139,6 @@ if __name__ == '__main__':
 
     # Write to the .env file
     with open(env_file_path, "w") as f:
-        f.write(f"NEWS_URL={news_url}\n")
+        f.write(f"STREAM_URL={STREAM_URL}\n")
     
-    print("NEWS_URL updated in configs/general.env")
+    print("STREAM_URL updated in configs/general.env")

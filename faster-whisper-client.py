@@ -1,6 +1,5 @@
 import json
 import numpy as np
-from datetime import timedelta
 
 def sentence_generator(word_objects, sentence_buffer=None):
     """
@@ -219,8 +218,9 @@ from utils import get_whisper_server_url
 from dotenv import load_dotenv
 import os
 
-# import nltk
-# nltk.download('punkt_tab')
+from nse_topic_segmentation.models.lightning_model import TextSegmenter
+from nse_topic_segmentation.models.EncoderDataset import Predictor
+import wandb
 
 def load_model_from_wandb(run_id='k4j7vuo7'):
     api = wandb.Api()
@@ -235,11 +235,11 @@ def load_model_from_wandb(run_id='k4j7vuo7'):
 
 if __name__ == '__main__':
     # Load env variables
-    load_dotenv("configs/general.env")
-    NEWS_URL = os.getenv("NEWS_URL")
+    load_dotenv("configs/stream_url.env")
+    STREAM_URL = os.getenv("STREAM_URL")
 
     # Load env variables
-    load_dotenv("configs/websocket.env")
+    load_dotenv("configs/faster-whisper-client.env")
     HOST = os.getenv("HOST")
     PORT = os.getenv("PORT")
     MODEL = os.getenv("MODEL")
@@ -265,7 +265,7 @@ if __name__ == '__main__':
     # Run the rebroadcast
     await rebroadcast_audio(
         # stream_url=DUMMY_STREAM_URL,
-        stream_url=NEWS_URL,
+        stream_url=STREAM_URL,
 
         trim_seconds=int(60 * 2),
         # trim_seconds=30,
