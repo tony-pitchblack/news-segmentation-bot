@@ -26,8 +26,8 @@ git config --global pull.rebase true
 
 # BUILD
 cd faster-whisper-server/ && \
-git pull origin master && \
-git checkout master && \
+# git pull origin master && \
+# git checkout master && \
 sudo docker build -t faster-whisper-server:local -f Dockerfile.cpu . --rm \
 && cd ..
 

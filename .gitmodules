@@ -1,0 +1,6 @@
+[submodule "NSE-TopicSegmentation"]
+	path = NSE-TopicSegmentation
+	url = https://github.com/tony-pitchblack/NSE-TopicSegmentation
+[submodule "nse_topic_segmentation"]
+	path = nse_topic_segmentation
+	url = https://github.com/tony-pitchblack/NSE-TopicSegmentation
