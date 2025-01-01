@@ -1,6 +1,7 @@
-configs/general.env
+configs/stream_url.env
 configs/keys.env
-.env
+artifacts
+.vscode
 
 .DS_Store
 .huskyrc.json
