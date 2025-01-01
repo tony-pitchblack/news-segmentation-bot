@@ -36,18 +36,20 @@ def measure_execution_time(func):
 
     return wrapper
 
-from models.lightning_model import TextSegmenter
-from models.EncoderDataset import Predictor
-import wandb
-import os
+import logging
 
-def load_model_from_wandb(run_id='k4j7vuo7'):
-    api = wandb.Api()
-    artifact = api.artifact(f'overfit1010/lenta_BiLSTM_F1/model-{run_id}:v0', type='model')
-    art_dir = artifact.download()
-    ckpt_path = os.path.join(art_dir, 'model.ckpt')
+def setup_logger(name=None, log_level=logging.INFO):
+    logging.basicConfig(format="%(levelname)s:%(funcName)s:%(lineno)d:%(message)s")
+    # logging.basicConfig(format="%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(lineno)d:%(message)s")
+    logger = logging.getLogger(name=name)
+    logger.setLevel(log_level)
+    return logger
 
-    text_seg_model = TextSegmenter.load_from_checkpoint(ckpt_path).to('cpu')
-    predictor_model = Predictor(text_seg_model, sentence_encoder="cointegrated/rubert-tiny2")
-
-    return predictor_model
+# Function to format time in "hh:mm:ss.xx"
+def format_time(seconds):
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds % 60
+    milliseconds = int((secs % 1) * 100)
+    secs = int(secs)  # Remove fractional part for formatting
+    return f"{hours:02}:{minutes:02}:{secs:02}.{milliseconds:02}"
