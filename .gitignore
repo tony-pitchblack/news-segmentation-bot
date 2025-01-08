@@ -1,8 +1,13 @@
+# HF DATASET
+transcripts
+
+# REPO: news-segmentation-bot
 configs/stream_url.env
 configs/keys.env
 artifacts
 .vscode
 
+# general
 .DS_Store
 .huskyrc.json
 out
