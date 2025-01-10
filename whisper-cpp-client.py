@@ -13,48 +13,113 @@ import asyncio
 import os
 import numpy as np
 
-
-# If there are sentences, prepare them for segmentation inference
-async def detect_segment_boundaries(sentence_generator, predictor_model, batch_size=1):
+async def generate_segments(sentence_generator, predictor_model, buffer_size=1):
     async def generator():
         sentences = []
+        segment_buffer = []
+
         async for sentence in sentence_generator:
             sentences.append(sentence)
-            if len(sentences) >= batch_size:
+
+            # Process in batches
+            if len(sentences) >= buffer_size:
                 # Predict boundaries using the text segmentation model
                 doc = [sentence['text'] for sentence in sentences]
                 predictions = predictor_model.predict([doc], pretokenized_sents=[doc])
                 boundary_mask = predictions[0]['boundaries'][0]
                 boundary_mask = np.array(boundary_mask)
-                yield (sentences, boundary_mask)
 
+                # Accumulate sentences into segments
+                for sentence, boundary_flag in zip(sentences, boundary_mask):
+                    segment_buffer.append(sentence)
+
+                    # Yield the current segment if a boundary is detected
+                    if boundary_flag:
+                        yield segment_buffer
+                        segment_buffer = []  # Reset buffer for next segment
+
+                # Reset sentence buffer after processing the batch
                 sentences = []
+
+        # Yield any remaining sentences as the final segment
+        if segment_buffer:
+            yield segment_buffer
+
     return generator()
 
-async def handle_segments(boundary_generator):
-    async for sentences, boundary_mask in boundary_generator:
-        # Print boundary prediction for each sentence
-        for idx, (sentence, boundary_flag) in enumerate(zip(sentences, boundary_mask)):
-            text = sentence['text']
-            start = sentence['start']
-            end = sentence['end']
+import spacy
+from keywords import check_symbols, exclude_words_up, find_keywords, keywords_up
 
-            # Handle missing timestamps with fallback logic
-            if start is None:
-                start = prev_start + 1  # Estimate start
-            if end is None:
-                end = start + 1  # Estimate end
+nlp = spacy.load("ru_core_news_sm") # Load Russian model
 
-            prev_start = start
+def detect_keywords(text):
+    # Применение лемматизации
+    sentence_lemmatized = ' '.join([token.lemma_.upper() for token in nlp(text)])
 
-            # Print the sentence with its boundary status
-            print(
-                f"[{format_time(start)} - {format_time(end)}] ",
-                "BOUNDARY: " if boundary_flag else "INNER: ",
-                text,
-                sep=''
-            )
+    # Проверка наличия ключевых слов
+    matched_raw = find_keywords(keywords_up, text, exclude_words_up)
+    matched_lemm = find_keywords(keywords_up, sentence_lemmatized, exclude_words_up)
 
+    return matched_raw | matched_lemm
+
+async def classify_segments(segment_generator):
+    async for segment_sentences in segment_generator:
+        first_sentence = segment_sentences[0]
+        keywords = detect_keywords(first_sentence['text'])
+        print_sentence(first_sentence, is_boundary_pred=True, keywords=keywords)
+
+        for sentence in segment_sentences[1:]:
+            keywords = detect_keywords(sentence['text'])
+            print_sentence(sentence, keywords=keywords)
+
+def print_sentence(
+        sentence,
+        idx=None,
+        is_boundary_pred=False, is_boundary_target=False,
+        keywords=[]
+    ):
+
+    text = sentence['text']
+    start = sentence['start']
+    end = sentence['end']
+
+    boundary_indicators = 'P' if is_boundary_pred else '-'
+    boundary_indicators += 'T' if is_boundary_target else '-'
+    # boundary_indicators += 'K' if keywords is not None else '-'
+
+    prefix = f"{idx:03d}" if idx is not None else ''
+    prefix = f"[{format_time(start)} - {format_time(end)}]"
+
+    print(
+        prefix,
+        boundary_indicators,
+        text,
+        sep=' '
+    )
+
+    if len(keywords) > 0:
+        print(
+            ' ' * len(prefix),
+            '>' * len(boundary_indicators),
+            ', '.join(keywords),
+            sep=' '
+        )
+
+async def dummy_transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
+    async def generator():
+        # Dummy transcribed segments with mock start and end times
+        dummy_transcriptions = [
+            {"text": "Hello, how are you?", "start": 0, "end": 3},
+            {"text": "I am fine, thank you.", "start": 4, "end": 7},
+            {"text": "What about you,", "start": 8, "end": 10},
+            {"text": "Акимов Юрий?", "start":11, "end": 12},
+            {"text": "I'm doing well, thanks.", "start": 12, "end": 14},
+        ]
+
+        for transcription in dummy_transcriptions:
+            yield transcription
+
+    return generator()
 
 async def transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
     logger.info("Starting audio transcribation...")
@@ -84,6 +149,7 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
         async for line in read_stream(process.stdout, log_fn=logger.debug):
             if line != "":
                 transcribed_segment = json.loads(line)
+                # print(transcribed_segment)
                 yield transcribed_segment
 
         async for line in read_stream(process.stderr, log_fn=logger.error):
@@ -131,6 +197,20 @@ async def generate_sentences(transcript_generator):
 
     return sentence_generator()
 
+def dummy_load_model_from_wandb():
+    class DummyPredictor:
+        def predict(self, documents, pretokenized_sents=None):
+            # Simulate boundary prediction for testing
+            # Assuming each document is a list of sentences
+            results = []
+            for doc in documents:
+                boundaries = [False] * (len(doc) - 1) + [True]
+                results.append({"boundaries": [boundaries]})
+            return results
+
+    logger.info("Loaded dummy predictor model.")
+    return DummyPredictor()
+
 def load_model_from_wandb(run_id='k4j7vuo7'):
     from nse_topic_segmentation.models.lightning_model import TextSegmenter
     from nse_topic_segmentation.models.EncoderDataset import Predictor
@@ -149,7 +229,7 @@ def load_model_from_wandb(run_id='k4j7vuo7'):
 
 from dotenv import load_dotenv
 
-async def main():
+async def main(dev_run=False):
     import argparse
 
     # Create an argument parser
@@ -189,37 +269,48 @@ async def main():
             "Either change permissions or set another HF_HOME directory in configs/whisper-cpp-client.env"
         )
 
-    predictor_model = load_model_from_wandb()
-
     kwargs = dict(
         stream_url=STREAM_URL,
         step_s=15,
         model="small",
         language="ru",
-        max_duration=30,
+        max_duration=60 * 2,
         verbosity=0,
         print_openai=1,
         whisper_cpp_root_path="../whisper.cpp"
     )
 
-    # await transcribe_audio_stream(
-    #     **kwargs
-    # )
+    if dev_run:
+        logger.info("Running dev run with dummy functions.")
 
-    transcript_generator = await transcribe_audio_stream(**kwargs)
-    # async for line in transcript_generator:
-    #     print(line)
+        transcript_generator = await dummy_transcribe_audio_stream(**kwargs)
+        predictor_model = dummy_load_model_from_wandb()
+        sentence_generator = await generate_sentences(transcript_generator)
+        segment_generator = await generate_segments(
+            sentence_generator,
+            predictor_model=predictor_model,
+            buffer_size=2
+        )
+    else:
+        transcript_generator = await transcribe_audio_stream(**kwargs)
+        predictor_model = load_model_from_wandb()
+        sentence_generator = await generate_sentences(transcript_generator)
+        segment_generator = await generate_segments(
+            sentence_generator,
+            predictor_model=predictor_model,
+            buffer_size=2
+        )
 
-    sentence_generator = await generate_sentences(transcript_generator)
-    # async for line in sentence_generator:
-    #     print(line)
+    await classify_segments(segment_generator)
 
-    # await detect_segment_boundaries(sentence_generator, predictor_model=predictor_model)
-    boundary_generator = await detect_segment_boundaries(sentence_generator, predictor_model=predictor_model)
-    # async for line in boundary_generator:
-    #     print(line)
-
-    await handle_segments(boundary_generator)
+from functools import partial
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # sentence = {
+    #     'text': 'hello world',
+    #     'timestamp': (10, 70)
+    # }
+    # print_sentence(sentence, idx=10, is_boundary_pred=True, is_boundary_target=True, keywords=['hello'])
+
+    dev_run = False
+    asyncio.run(partial(main, dev_run=dev_run)())
