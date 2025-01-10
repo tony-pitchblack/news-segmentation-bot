@@ -12,5 +12,8 @@ sudo ./news-segmentation-bot/scripts/install_utils.sh
 
 # install topic-segmentation dependencies
 sudo ./news-segmentation-bot/scripts/install_utils.sh
-git clone https://github.com/tony-pitchblack/NSE-TopicSegmentation.git
-pip install -r NSE-TopicSegmentation/requirements.txt
+git clone https://github.com/tony-pitchblack/NSE-TopicSegmentation.git nse_topic_segmentation
+pip install -r nse_topic_segmentation/requirements.txt
+
+# install other dependencies
+python -m spacy download ru_core_news_sm

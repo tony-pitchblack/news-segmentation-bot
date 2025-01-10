@@ -7,6 +7,10 @@ selenium-wire==5.1.0
 blinker==1.7.0
 websocat==1.13.0
 
-# for online-segmentation.py
+# for faster-whisper-client.py
 websockets
 python-dotenv
+
+# for text classification
+# pymorphy-2
+spacy
