@@ -52,4 +52,5 @@ def format_time(seconds):
     secs = seconds % 60
     milliseconds = int((secs % 1) * 100)
     secs = int(secs)  # Remove fractional part for formatting
-    return f"{hours:02}:{minutes:02}:{secs:02}.{milliseconds:02}"
+    # return f"{hours:02}:{minutes:02}:{secs:02}.{milliseconds:02}"
+    return f"{hours:02}:{minutes:02}:{secs:02}"
