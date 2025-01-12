@@ -72,16 +72,32 @@ async def classify_segments(segment_generator):
             keywords = detect_keywords(sentence['text'])
             print_sentence(sentence, keywords=keywords)
 
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
+
+def seconds_since_midnight():
+    tz = ZoneInfo("Europe/Moscow")
+    now = datetime.now(tz)
+    midnight = datetime.combine(now.date(), time(0, 0, 0, tzinfo=tz))
+    return int((now - midnight).total_seconds())
+
 def print_sentence(
         sentence,
         idx=None,
         is_boundary_pred=False, is_boundary_target=False,
+        use_system_time=True,
         keywords=[]
     ):
 
     text = sentence['text']
+
     start = sentence['start']
     end = sentence['end']
+
+    if use_system_time:
+        time_delta = end - start
+        start = seconds_since_midnight()
+        end = start + time_delta
 
     boundary_indicators = 'P' if is_boundary_pred else '-'
     boundary_indicators += 'T' if is_boundary_target else '-'
