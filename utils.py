@@ -36,17 +36,11 @@ def measure_execution_time(func):
 
     return wrapper
 
-import logging
-
-def setup_logger(name=None, log_level=logging.INFO):
-    logging.basicConfig(format="%(levelname)s:%(funcName)s:%(lineno)d:%(message)s")
-    # logging.basicConfig(format="%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(lineno)d:%(message)s")
-    logger = logging.getLogger(name=name)
-    logger.setLevel(log_level)
-    return logger
-
-# Function to format time in "hh:mm:ss.xx"
 def format_time(seconds):
+    """
+    Format time in "hh:mm:ss.xx"
+    """
+
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = seconds % 60
@@ -54,3 +48,47 @@ def format_time(seconds):
     secs = int(secs)  # Remove fractional part for formatting
     # return f"{hours:02}:{minutes:02}:{secs:02}.{milliseconds:02}"
     return f"{hours:02}:{minutes:02}:{secs:02}"
+
+
+import logging
+
+def setup_logger(logger_name=None, log_level=logging.INFO):
+    logging.basicConfig(format="%(levelname)s:%(funcName)s:%(lineno)d:%(message)s")
+    # logging.basicConfig(format="%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(lineno)d:%(message)s")
+    logger = logging.getLogger(name=logger_name)
+    logger.setLevel(log_level)
+    return logger
+
+def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO):
+    # Create a logger
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(log_level)
+    
+    # Create a file handler for logging
+    file_handler = logging.FileHandler(file_path, mode='w')
+    file_handler.setLevel(log_level)
+    
+    # Create a formatter that logs raw text (no prefixes)
+    formatter = logging.Formatter('%(message)s')
+    file_handler.setFormatter(formatter)
+    
+    # Add the file handler to the logger
+    logger.addHandler(file_handler)
+
+    # Disable log propagation to avoid double logging
+    logger.propagate = False
+    
+    return logger
+
+from types import SimpleNamespace
+
+REPO_DIRS = SimpleNamespace(
+    logs='./logs',
+    segmentation_logs='./logs/segmentation'
+)
+
+import os
+
+def check_and_make_directories():
+    for _dir in REPO_DIRS.__dict__.values():
+        os.makedirs(_dir, exist_ok=True)

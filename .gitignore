@@ -5,7 +5,8 @@ transcripts
 configs/stream_url.env
 configs/keys.env
 artifacts
-.vscode
+logs
+# .vscode
 
 # general
 .DS_Store

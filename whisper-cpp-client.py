@@ -1,12 +1,28 @@
-from utils import setup_logger, format_time
+from utils import format_time
+from utils import setup_logger, setup_file_logger
+from utils import REPO_DIRS, check_and_make_directories
 from pathlib import Path
 import logging
 import json
 
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
+
 logger = setup_logger(
     Path(__file__).stem, 
+    # log_level=logging.INFO,
+    log_level=logging.DEBUG
+)
+
+check_and_make_directories()
+
+# Setup segmentation logging
+current_date = datetime.now().strftime("%d-%m-%Y")
+segmentation_log_path = Path(REPO_DIRS.segmentation_logs) / f'segmentation_{current_date}'
+segmentation_logger = setup_file_logger(
+    file_path=segmentation_log_path, 
+    logger_name='segmentation',
     log_level=logging.INFO,
-    # log_level=logging.DEBUG
 )
 
 import asyncio
@@ -72,9 +88,6 @@ async def classify_segments(segment_generator):
             keywords = detect_keywords(sentence['text'])
             print_sentence(sentence, keywords=keywords)
 
-from datetime import datetime, time
-from zoneinfo import ZoneInfo
-
 def seconds_since_midnight():
     tz = ZoneInfo("Europe/Moscow")
     now = datetime.now(tz)
@@ -106,22 +119,29 @@ def print_sentence(
     prefix = f"{idx:03d}" if idx is not None else ''
     prefix = f"[{format_time(start)} - {format_time(end)}]"
 
-    print(
-        prefix,
-        boundary_indicators,
-        text,
-        sep=' '
-    )
+    message_sentence = f'{prefix} {boundary_indicators} {text}'
+    print(message_sentence)
+    segmentation_logger.info(message_sentence)
 
     if len(keywords) > 0:
-        print(
+        message_keywords = " ".join([
             ' ' * len(prefix),
             '>' * len(boundary_indicators),
-            ', '.join(keywords),
-            sep=' '
-        )
+            ', '.join(keywords)
+        ])
+
+        print(message_keywords)
+        segmentation_logger.info(message_keywords)
+
+        # print(
+        #     ' ' * len(prefix),
+        #     '>' * len(boundary_indicators),
+        #     ', '.join(keywords),
+        #     sep=' '
+        # )
 
 async def dummy_transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
+    logger.info("Starting audio transcribation...")
     async def generator():
         # Dummy transcribed segments with mock start and end times
         dummy_transcriptions = [
@@ -143,6 +163,7 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
     cd {whisper_cpp_root_path}
     ./examples/livestream.sh "{stream_url}" {str(step_s)} {model} {language} {str(max_duration)} {str(verbosity)} {str(print_openai)}
     """
+    logger.debug(f"Launching whisper.cpp with shell script: {command}")
 
     process = await asyncio.create_subprocess_shell(
         command,
@@ -158,7 +179,7 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
                 if not line:
                     break
                 line = line.decode().strip()
-                log_fn('\n' + line)
+                log_fn(line)
                 yield line
 
         # Yield from stdout while logging stderr
@@ -240,6 +261,7 @@ def load_model_from_wandb(run_id='k4j7vuo7'):
 
     text_seg_model = TextSegmenter.load_from_checkpoint(ckpt_path).to('cpu')
     predictor_model = Predictor(text_seg_model, sentence_encoder="cointegrated/rubert-tiny2")
+    logger.info('Done loading model.')
 
     return predictor_model
 
@@ -262,14 +284,20 @@ async def main(dev_run=False):
     parser.add_argument("--verbosity", type=int, default=0, help="Verbosity level.")
     parser.add_argument("--print_openai", type=int, default=1, help="Whether to print OpenAI output.")
     parser.add_argument("--whisper_cpp_root_path", type=str, default='../whisper.cpp', help="whisper.cpp root path.")
+    parser.add_argument("--dev_run", type=bool, default=False, help="Run in development mode.")
     
     # Parse the arguments
     args = parser.parse_args()
 
-    if args.stream_url is None:
-        logger.info("Stream URL is not provided, loading STREAM_URL from `configs/news_url.env`")
+    if args.stream_url is None or args.stream_url == "":
+        logger.info("Stream URL is not provided, loading from `configs/news_url.env`")
         load_dotenv("configs/stream_url.env")
         STREAM_URL = os.getenv("STREAM_URL")
+    else:
+        STREAM_URL = args.stream_url
+
+    # TODO: fix silent hang on invalid stream_url in whisper.cpp/livestream.sh
+    logger.info(f"Transcribing from stream URL: {STREAM_URL}")
 
     # suppress_verbose_logging()
 
@@ -287,20 +315,22 @@ async def main(dev_run=False):
 
     kwargs = dict(
         stream_url=STREAM_URL,
-        step_s=15,
-        model="small",
-        language="ru",
-        max_duration=60 * 2,
-        verbosity=0,
-        print_openai=1,
-        whisper_cpp_root_path="../whisper.cpp"
+        step_s=args.step_s,
+        model=args.model,
+        language=args.language,
+        max_duration=args.max_duration,
+        verbosity=args.verbosity,
+        print_openai=args.print_openai,
+        whisper_cpp_root_path=args.whisper_cpp_root_path
     )
 
-    if dev_run:
-        logger.info("Running dev run with dummy functions.")
+    logger.debug(f"args.dev_run: {args.dev_run}")
+    if args.dev_run:
+        logger.info("Starting dev run.")
+
+        predictor_model = dummy_load_model_from_wandb()
 
         transcript_generator = await dummy_transcribe_audio_stream(**kwargs)
-        predictor_model = dummy_load_model_from_wandb()
         sentence_generator = await generate_sentences(transcript_generator)
         segment_generator = await generate_segments(
             sentence_generator,
@@ -308,8 +338,11 @@ async def main(dev_run=False):
             buffer_size=2
         )
     else:
-        transcript_generator = await transcribe_audio_stream(**kwargs)
+        logger.info("Starting normal run.")
+        
         predictor_model = load_model_from_wandb()
+
+        transcript_generator = await transcribe_audio_stream(**kwargs)
         sentence_generator = await generate_sentences(transcript_generator)
         segment_generator = await generate_segments(
             sentence_generator,
@@ -322,11 +355,4 @@ async def main(dev_run=False):
 from functools import partial
 
 if __name__ == "__main__":
-    # sentence = {
-    #     'text': 'hello world',
-    #     'timestamp': (10, 70)
-    # }
-    # print_sentence(sentence, idx=10, is_boundary_pred=True, is_boundary_target=True, keywords=['hello'])
-
-    dev_run = False
-    asyncio.run(partial(main, dev_run=dev_run)())
+    asyncio.run(partial(main)())
