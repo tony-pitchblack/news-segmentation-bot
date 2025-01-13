@@ -10,6 +10,7 @@ websocat==1.13.0
 # for faster-whisper-client.py
 websockets
 python-dotenv
+colorlog
 
 # for text classification
 # pymorphy-2

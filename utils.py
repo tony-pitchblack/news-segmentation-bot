@@ -51,33 +51,76 @@ def format_time(seconds):
 
 
 import logging
+import colorlog
 
-def setup_logger(logger_name=None, log_level=logging.INFO):
-    logging.basicConfig(format="%(levelname)s:%(funcName)s:%(lineno)d:%(message)s")
-    # logging.basicConfig(format="%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(lineno)d:%(message)s")
-    logger = logging.getLogger(name=logger_name)
+def setup_logger(logger_name=None, log_level=logging.INFO, color=True):
+    """
+    Sets up a logger with optional colorized `levelname` output.
+
+    Parameters:
+        logger_name (str): Name of the logger.
+        log_level (int): Logging level.
+        color (bool): If True, enable colorized `levelname` in the logs.
+
+    Returns:
+        logging.Logger: Configured logger instance.
+    """
+    logger = logging.getLogger(logger_name)
     logger.setLevel(log_level)
+
+    if color:
+            # Define log colors for `levelname` and `funcName`
+            formatter = colorlog.ColoredFormatter(
+                "%(log_color)s%(levelname)s%(reset)s:"
+                "%(blue)s%(funcName)s%(reset)s:"
+                "%(lineno)d:%(message)s",
+                log_colors={
+                    'DEBUG': 'cyan',
+                    'INFO': 'green',
+                    'WARNING': 'yellow',
+                    'ERROR': 'red',
+                    'CRITICAL': 'bold_red',
+                },
+            )
+    else:
+        # Standard formatter without colors
+        formatter = logging.Formatter("%(levelname)s:%(funcName)s:%(lineno)d:%(message)s")
+    
+    # Create a console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+    
+    # Add the console handler to the logger
+    logger.addHandler(console_handler)
+
     return logger
 
 def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO):
-    # Create a logger
+    """
+    Sets up a file logger to write raw text logs to a specified file.
+    
+    Parameters:
+        file_path (str): Path to the log file.
+        logger_name (str): Name of the logger.
+        log_level (int): Logging level.
+        
+    Returns:
+        logging.Logger: Configured logger instance.
+    """
     logger = logging.getLogger(logger_name)
     logger.setLevel(log_level)
-    
-    # Create a file handler for logging
+
     file_handler = logging.FileHandler(file_path, mode='w')
     file_handler.setLevel(log_level)
-    
-    # Create a formatter that logs raw text (no prefixes)
+
+    # Raw text format for file logs
     formatter = logging.Formatter('%(message)s')
     file_handler.setFormatter(formatter)
-    
-    # Add the file handler to the logger
-    logger.addHandler(file_handler)
 
-    # Disable log propagation to avoid double logging
+    logger.addHandler(file_handler)
     logger.propagate = False
-    
+
     return logger
 
 from types import SimpleNamespace
