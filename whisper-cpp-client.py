@@ -4,6 +4,7 @@ from utils import REPO_DIRS, check_and_make_directories
 from pathlib import Path
 import logging
 import json
+from glob import glob
 
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
@@ -17,10 +18,10 @@ logger = setup_logger(
 check_and_make_directories()
 
 # Setup segmentation logging
-current_date = datetime.now().strftime("%d-%m-%Y")
-segmentation_log_path = Path(REPO_DIRS.segmentation_logs) / f'segmentation_{current_date}'
+current_datetime = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+seg_log_file_path = Path(REPO_DIRS.segmentation_logs) / f'segmentation_{current_datetime}'
 segmentation_logger = setup_file_logger(
-    file_path=segmentation_log_path, 
+    file_path= seg_log_file_path, 
     logger_name='segmentation',
     log_level=logging.INFO,
 )
@@ -31,6 +32,7 @@ import numpy as np
 
 async def generate_segments(sentence_generator, predictor_model, buffer_size=1):
     async def generator():
+        logger.debug('Generating another segment...')
         sentences = []
         segment_buffer = []
 
@@ -55,6 +57,7 @@ async def generate_segments(sentence_generator, predictor_model, buffer_size=1):
                         segment_buffer = []  # Reset buffer for next segment
 
                 # Reset sentence buffer after processing the batch
+                logger.debug('Generating another segment...')
                 sentences = []
 
         # Yield any remaining sentences as the final segment
@@ -79,14 +82,25 @@ def detect_keywords(text):
     return matched_raw | matched_lemm
 
 async def classify_segments(segment_generator):
+    logger.debug('Waiting to classify segments...')
+    end = seconds_since_midnight() # Let very first dummy segment end at current time
     async for segment_sentences in segment_generator:
+        segment_duration = segment_sentences[-1]['end'] - segment_sentences[0]['start']
+        logger.debug(f'Classifying another segment with duration {segment_duration} seconds...')
+
         first_sentence = segment_sentences[0]
+        start = end
+        end = start + first_sentence['end'] - first_sentence['start']
+
         keywords = detect_keywords(first_sentence['text'])
-        print_sentence(first_sentence, is_boundary_pred=True, keywords=keywords)
+        print_sentence(first_sentence['text'], start, end, is_boundary_pred=True, keywords=keywords)
 
         for sentence in segment_sentences[1:]:
             keywords = detect_keywords(sentence['text'])
-            print_sentence(sentence, keywords=keywords)
+            
+            start = end
+            end = start + sentence['end'] - sentence['start']
+            print_sentence(sentence['text'], start, end, keywords=keywords)
 
 def seconds_since_midnight():
     tz = ZoneInfo("Europe/Moscow")
@@ -95,22 +109,14 @@ def seconds_since_midnight():
     return int((now - midnight).total_seconds())
 
 def print_sentence(
-        sentence,
+        text,
+        start,
+        end,
         idx=None,
         is_boundary_pred=False, is_boundary_target=False,
         use_system_time=True,
         keywords=[]
     ):
-
-    text = sentence['text']
-
-    start = sentence['start']
-    end = sentence['end']
-
-    if use_system_time:
-        time_delta = end - start
-        start = seconds_since_midnight()
-        end = start + time_delta
 
     boundary_indicators = 'P' if is_boundary_pred else '-'
     boundary_indicators += 'T' if is_boundary_target else '-'
@@ -184,6 +190,7 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
 
         # Yield from stdout while logging stderr
         async for line in read_stream(process.stdout, log_fn=logger.debug):
+            # TODO: more meaningful message for json.decoder.JSONDecodeError - WhisperCPP does not output json
             if line != "":
                 transcribed_segment = json.loads(line)
                 # print(transcribed_segment)
@@ -204,6 +211,7 @@ async def generate_sentences(transcript_generator):
         start_time = None
 
         async for transcript in transcript_generator:
+            logger.debug('Generating another sentence...')
             # Append new text to the buffer
             sentence_buffer.append(transcript["text"])
             

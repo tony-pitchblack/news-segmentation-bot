@@ -15,14 +15,18 @@ time ./build/bin/whisper-cli \
   -f /tmp/whisper-live.wav \
   --language $language \
   --no-timestamps \
-  -otxt 2> /tmp/whispererr
+  -otxt \
+  # 2> /tmp/whispererr
+  2>&1
 
 time ./build/bin/whisper-cli \
   -t 8 \
   -m ./models/ggml-${model}.bin \
   -f /tmp/whisper-live.wav \
   --language $language \
-  -poai 2> /tmp/whispererr
+  -poai \
+  # 2> /tmp/whispererr
+  2>&1
 
 # Debug whisper-cli.cpp
 cd whisper.cpp

@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
     # Path to the .env file in the same directory as the script
     os.makedirs(script_dir / 'configs', exist_ok=True)
-    env_file_path = script_dir / 'configs' / "general.env"
+    env_file_path = script_dir / 'configs' / "stream_url.env"
 
     # Write to the .env file
     with open(env_file_path, "w") as f:

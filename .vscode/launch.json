@@ -2,13 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "whisper-cpp-client.py",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/whisper-cpp-client.py",  // Make sure the path is correct
             "console": "integratedTerminal",
             "args": [
-                "--dev_run", "True",
+                // "--dev_run", "True",
 
                 // "--stream_url", "", # TODO: fix silent hang on invalid stream_url in whisper.cpp/livestream.sh
 
