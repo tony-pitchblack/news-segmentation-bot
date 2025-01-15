@@ -101,15 +101,6 @@ def setup_logger(logger_name=None, log_level=logging.INFO, color=True):
 
     return logger
 
-class PrefixFilter(logging.Filter):
-    def __init__(self, prefix):
-        super().__init__()
-        self.prefix = prefix
-
-    def filter(self, record):
-        record.msg = f"{self.prefix} {record.msg}"
-        return True
-
 def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO, log_prefix='only_ts'):
     """
     Sets up a file logger to write raw text logs to a specified file with optional prefix.
