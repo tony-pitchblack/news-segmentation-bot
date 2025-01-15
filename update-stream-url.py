@@ -105,7 +105,7 @@ def retry_on_failure(use_seleniumwire=False):
 import re
 
 @retry_on_failure(use_seleniumwire=True)
-def update_stream_url():
+def update_m24_stream_url():
     print('Loading landing page...')
     landing_url = "https://www.m24.ru/"
     driver.get(landing_url)
@@ -121,13 +121,59 @@ def update_stream_url():
     STREAM_URL = matched_urls.pop()
     return STREAM_URL
 
+import argparse
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Update stream URL for different sources.")
+    parser.add_argument(
+        '--source', 
+        choices=['m24', 'ntv'], 
+        required=True, 
+        help="Specify the source for updating the stream URL (m24 or ntv)"
+    )
+    parser.add_argument(
+        '--video_id', 
+        type=str, 
+        help="Specify the video ID for 'ntv' source"
+    )
+    return parser.parse_args()
+
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
-if __name__ == '__main__':
+def main():
+    args = parse_arguments()
 
-    restart_driver(use_seleniumwire=True)
-    STREAM_URL = update_stream_url()
+    if args.source == 'm24':
+        restart_driver(use_seleniumwire=True)
+        stream_url = update_m24_stream_url()
+ 
+    elif args.source == 'ntv':
+        import json
+        from huggingface_hub import hf_hub_download
+        import os
+
+        REPO_NAME = 'news-segmentation-ntv'
+        REPO_ID = f"tony-pitchblack/{REPO_NAME}"
+
+        FILE_NAME_DOWNLOAD_URLS = "download_urls.json"
+
+        load_dotenv('configs/keys.env') # load HF_TOKEN
+
+        def download_json_dict(file_name):
+            try:
+                hf_file_path = hf_hub_download(repo_id=REPO_ID, filename=file_name, repo_type='dataset')
+                with open(hf_file_path, "r", encoding='utf-8') as json_file:
+                    json_dict = json.load(json_file)
+            except Exception as e:
+                print(f"File {file_name} does not exist.")
+                json_dict = {}
+
+            return json_dict
+
+        download_urls_dict = download_json_dict(FILE_NAME_DOWNLOAD_URLS)
+        stream_url = download_urls_dict[args.video_id]
 
     # Get the directory where the script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -139,6 +185,9 @@ if __name__ == '__main__':
 
     # Write to the .env file
     with open(env_file_path, "w") as f:
-        f.write(f"STREAM_URL={STREAM_URL}\n")
-    
-    print("STREAM_URL updated in configs/general.env")
+        f.write(f'STREAM_URL="{stream_url}\n"')
+
+    print(f"Updated stream URL: {stream_url}")
+
+if __name__ == '__main__':
+    main()

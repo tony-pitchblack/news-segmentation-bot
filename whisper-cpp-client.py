@@ -30,8 +30,8 @@ import asyncio
 import os
 import numpy as np
 
-async def generate_segments(sentence_generator, predictor_model, buffer_size=1):
-    async def generator():
+async def generate_segments(sentence_generator, predictor_model, buffer_size=10):
+    async def segment_generator():
         logger.debug('Generating another segment...')
         sentences = []
         segment_buffer = []
@@ -57,14 +57,16 @@ async def generate_segments(sentence_generator, predictor_model, buffer_size=1):
                         segment_buffer = []  # Reset buffer for next segment
 
                 # Reset sentence buffer after processing the batch
+                logger.debug('A segment has been generated.')
                 logger.debug('Generating another segment...')
                 sentences = []
 
         # Yield any remaining sentences as the final segment
         if segment_buffer:
             yield segment_buffer
+            logger.debug('A segment has been generated.')
 
-    return generator()
+    return segment_generator()
 
 import spacy
 from keywords import check_symbols, exclude_words_up, find_keywords, keywords_up
@@ -82,7 +84,7 @@ def detect_keywords(text):
     return matched_raw | matched_lemm
 
 async def classify_segments(segment_generator):
-    logger.debug('Waiting to classify segments...')
+    logger.debug('Ready to classify segments.')
     end = seconds_since_midnight() # Let very first dummy segment end at current time
     async for segment_sentences in segment_generator:
         segment_duration = segment_sentences[-1]['end'] - segment_sentences[0]['start']
@@ -147,7 +149,7 @@ def print_sentence(
         # )
 
 async def dummy_transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
-    logger.info("Starting audio transcribation...")
+    logger.info("Started audio transcribation.")
     async def generator():
         # Dummy transcribed segments with mock start and end times
         dummy_transcriptions = [
@@ -164,7 +166,7 @@ async def dummy_transcribe_audio_stream(stream_url, step_s, model, language, max
     return generator()
 
 async def transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
-    logger.info("Starting audio transcribation...")
+    logger.info("Started audio transcribation.")
     command = f"""
     cd {whisper_cpp_root_path}
     ./examples/livestream.sh "{stream_url}" {str(step_s)} {model} {language} {str(max_duration)} {str(verbosity)} {str(print_openai)}
@@ -207,11 +209,11 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
 
 async def generate_sentences(transcript_generator):
     async def sentence_generator():
+        logger.debug('Generating another sentence...')
         sentence_buffer = []
         start_time = None
 
         async for transcript in transcript_generator:
-            logger.debug('Generating another sentence...')
             # Append new text to the buffer
             sentence_buffer.append(transcript["text"])
             
@@ -222,18 +224,25 @@ async def generate_sentences(transcript_generator):
             # Check if the buffer ends with a complete sentence
             current_text = " ".join(sentence_buffer).strip()
             if current_text.endswith((".", "!", "?")):
+                logger.debug(f'A sentence has been generated: {current_text}')
+
                 # Yield the complete sentence
                 yield {
                     "start": start_time,
                     "end": transcript["end"],
                     "text": current_text
                 }
+
+                logger.debug('Generating another sentence...')
+
                 # Reset the buffer and start time
                 sentence_buffer = []
                 start_time = None
 
         # Handle any remaining text in the buffer after the generator ends
         if sentence_buffer:
+            logger.debug(f'A sentence has been generated: {transcript["text"]}')
+
             yield {
                 "start": start_time,
                 "end": transcript["end"],
@@ -298,8 +307,9 @@ async def main(dev_run=False):
     args = parser.parse_args()
 
     if args.stream_url is None or args.stream_url == "":
-        logger.info("Stream URL is not provided, loading from `configs/news_url.env`")
-        load_dotenv("configs/stream_url.env")
+        stream_url_config = "configs/stream_url.env"
+        logger.info(f"Stream URL is not provided, loading from `{stream_url_config}`")
+        load_dotenv(stream_url_config)
         STREAM_URL = os.getenv("STREAM_URL")
     else:
         STREAM_URL = args.stream_url
@@ -332,7 +342,6 @@ async def main(dev_run=False):
         whisper_cpp_root_path=args.whisper_cpp_root_path
     )
 
-    logger.debug(f"args.dev_run: {args.dev_run}")
     if args.dev_run:
         logger.info("Starting dev run.")
 
@@ -355,7 +364,7 @@ async def main(dev_run=False):
         segment_generator = await generate_segments(
             sentence_generator,
             predictor_model=predictor_model,
-            buffer_size=2
+            buffer_size=10
         )
 
     await classify_segments(segment_generator)
