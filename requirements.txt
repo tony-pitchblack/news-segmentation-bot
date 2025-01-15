@@ -6,6 +6,7 @@ selenium==4.27.1
 selenium-wire==5.1.0
 blinker==1.7.0
 websocat==1.13.0
+huggigface-hub
 
 # for faster-whisper-client.py
 websockets
