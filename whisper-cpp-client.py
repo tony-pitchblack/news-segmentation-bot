@@ -130,9 +130,9 @@ async def classify_segments(segment_generator):
             print_sentence(sentence['text'], start, end, keywords=keywords)
 
 def seconds_since_midnight():
-    tz = ZoneInfo("Europe/Moscow")
-    now = datetime.now(tz)
-    midnight = datetime.combine(now.date(), time(0, 0, 0, tzinfo=tz))
+    now = datetime.now()
+    midnight = datetime.combine(now.date(), time(0, 0, 0))
+
     return int((now - midnight).total_seconds())
 
 def print_sentence(

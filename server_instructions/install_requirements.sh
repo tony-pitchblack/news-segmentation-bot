@@ -25,3 +25,6 @@ pip install -r nse_topic_segmentation/requirements.txt
 
 # install other dependencies
 python -m spacy download ru_core_news_sm
+
+# set local time
+sudo timedatectl set-timezone Europe/Moscow
