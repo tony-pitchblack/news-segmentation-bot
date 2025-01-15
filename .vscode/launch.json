@@ -19,7 +19,8 @@
             "program": "${workspaceFolder}/whisper-cpp-client.py", // Make sure the path is correct
             "console": "integratedTerminal",
             "args": [
-                // "--dev_run", "True",
+                "--dev_run", "True",
+                "--profile", "True",
                 // "--stream_url", "", # TODO: fix silent hang on invalid stream_url in whisper.cpp/livestream.sh
                 "--step_s",
                 "15",

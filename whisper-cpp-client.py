@@ -5,10 +5,11 @@ from pathlib import Path
 import logging
 import json
 from glob import glob
-
+import os
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
+# Setup logging
 logger = setup_logger(
     Path(__file__).stem, 
     # log_level=logging.INFO,
@@ -17,19 +18,42 @@ logger = setup_logger(
 
 check_and_make_directories()
 
-# Setup segmentation logging
 current_datetime = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-seg_log_file_path = Path(REPO_DIRS.segmentation_logs) / f'segmentation_{current_datetime}'
+current_logs_path = Path(REPO_DIRS.logs_dir) / current_datetime
+os.makedirs(current_logs_path)
+
 segmentation_logger = setup_file_logger(
-    file_path= seg_log_file_path, 
+    file_path= current_logs_path / f'segmentation.log', 
     logger_name='segmentation',
     log_level=logging.INFO,
+    log_prefix=False
 )
 
-import asyncio
-import os
-import numpy as np
+profiling_logger = setup_file_logger(
+    file_path= current_logs_path / f'profiling.log', 
+    logger_name='profiling',
+    log_level=logging.INFO,
+    log_prefix=True
+)
 
+# Set up async generator wrapper for logging time
+import asyncio
+import numpy as np
+from time import perf_counter
+
+async def timed_generator(generator):
+    async for item in generator:
+        start_time = perf_counter()  # Start timing
+
+        # Yield the item
+        yield item
+
+        end_time = perf_counter()  # End timing
+        execution_time = end_time - start_time
+        # print(f"Execution time for a cycle: {execution_time:.4f} seconds")
+        profiling_logger.info(f"Execution time for a cycle: {execution_time:.4f} seconds")
+
+# Main functions
 async def generate_segments(sentence_generator, predictor_model, buffer_size=10):
     async def segment_generator():
         logger.debug('Generating another segment...')
@@ -302,6 +326,7 @@ async def main(dev_run=False):
     parser.add_argument("--print_openai", type=int, default=1, help="Whether to print OpenAI output.")
     parser.add_argument("--whisper_cpp_root_path", type=str, default='../whisper.cpp', help="whisper.cpp root path.")
     parser.add_argument("--dev_run", type=bool, default=False, help="Run in development mode.")
+    parser.add_argument("--profile", type=bool, default=False, help="Measure execution time of main functions. Log to logs/profiling.log")
     
     # Parse the arguments
     args = parser.parse_args()
@@ -366,6 +391,12 @@ async def main(dev_run=False):
             predictor_model=predictor_model,
             buffer_size=10
         )
+
+    # Measure execution time
+    if args.profile:
+        transcript_generator = timed_generator(transcript_generator)
+        sentence_generator = timed_generator(sentence_generator)
+        segment_generator = timed_generator(segment_generator)
 
     await classify_segments(segment_generator)
 

@@ -101,38 +101,58 @@ def setup_logger(logger_name=None, log_level=logging.INFO, color=True):
 
     return logger
 
-def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO):
+class PrefixFilter(logging.Filter):
+    def __init__(self, prefix):
+        super().__init__()
+        self.prefix = prefix
+
+    def filter(self, record):
+        record.msg = f"{self.prefix} {record.msg}"
+        return True
+
+def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO, log_prefix=False):
     """
-    Sets up a file logger to write raw text logs to a specified file.
+    Sets up a file logger to write raw text logs to a specified file with optional prefix.
     
     Parameters:
         file_path (str): Path to the log file.
         logger_name (str): Name of the logger.
         log_level (int): Logging level.
-        
+        log_prefix (bool): If True, add a log prefix to the message.
+
     Returns:
         logging.Logger: Configured logger instance.
     """
     logger = logging.getLogger(logger_name)
     logger.setLevel(log_level)
 
+    # Create file handler
     file_handler = logging.FileHandler(file_path, mode='w')
     file_handler.setLevel(log_level)
 
-    # Raw text format for file logs
-    formatter = logging.Formatter('%(message)s')
-    file_handler.setFormatter(formatter)
+    # If log_prefix is True, add prefix similar to the vanilla setup_logger()
+    if log_prefix:
+        # Standard log prefix formatter
+        file_formatter = logging.Formatter(
+            "[%(asctime)s] %(levelname)s:%(funcName)s:%(lineno)d: %(message)s",
+            datefmt="%H:%M:%S"
+        )
+    else:
+        # Standard formatter for file logs
+        file_formatter = logging.Formatter('%(message)s')
 
+    file_handler.setFormatter(file_formatter)
+
+    # Add the file handler to the logger
     logger.addHandler(file_handler)
+
     logger.propagate = False
-
     return logger
-
+    
 from types import SimpleNamespace
 
 REPO_DIRS = SimpleNamespace(
-    logs='./logs',
-    segmentation_logs='./logs/segmentation'
+    logs_dir='./logs',
 )
 
 import os
