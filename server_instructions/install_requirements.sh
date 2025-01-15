@@ -5,9 +5,9 @@ sudo apt install python3 python3-pip -y
 sudo apt install python3.12-venv -y
 
 # create env & install python dependencies
-python3 -m venv news-bot-env
-source news-bot-env/bin/activate
-pip install -r news-segmentation-bot/requirements.txt
+python3 -m venv ~/news-bot-env
+source ~/news-bot-env/bin/activate
+pip install -r ~/news-segmentation-bot/requirements.txt
 chmod -R 755 ~/news-segmentation-bot
 
 # install shell dependencies
