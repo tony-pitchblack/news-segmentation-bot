@@ -55,7 +55,7 @@ import colorlog
 
 def setup_logger(logger_name=None, log_level=logging.INFO, color=True):
     """
-    Sets up a logger with optional colorized `levelname` output.
+    Sets up a logger with optional colorized `levelname` output and default time formatting.
 
     Parameters:
         logger_name (str): Name of the logger.
@@ -69,22 +69,27 @@ def setup_logger(logger_name=None, log_level=logging.INFO, color=True):
     logger.setLevel(log_level)
 
     if color:
-            # Define log colors for `levelname` and `funcName`
-            formatter = colorlog.ColoredFormatter(
-                "%(log_color)s%(levelname)s%(reset)s:"
-                "%(blue)s%(funcName)s%(reset)s:"
-                "%(lineno)d:%(message)s",
-                log_colors={
-                    'DEBUG': 'cyan',
-                    'INFO': 'green',
-                    'WARNING': 'yellow',
-                    'ERROR': 'red',
-                    'CRITICAL': 'bold_red',
-                },
-            )
+        # Formatter with color and default time formatting
+        formatter = colorlog.ColoredFormatter(
+            "[%(asctime)s] "
+            "%(log_color)s%(levelname)s%(reset)s:"
+            "%(blue)s%(funcName)s%(reset)s:"
+            "%(lineno)d: %(message)s",
+            datefmt="%H:%M:%S",  # Default time format
+            log_colors={
+                'DEBUG': 'cyan',
+                'INFO': 'green',
+                'WARNING': 'yellow',
+                'ERROR': 'red',
+                'CRITICAL': 'bold_red',
+            },
+        )
     else:
         # Standard formatter without colors
-        formatter = logging.Formatter("%(levelname)s:%(funcName)s:%(lineno)d:%(message)s")
+        formatter = logging.Formatter(
+            "%(levelname)s:%(asctime)s:%(funcName)s:%(lineno)d:%(message)s",
+            datefmt="%H:%M:%S"
+        )
     
     # Create a console handler
     console_handler = logging.StreamHandler()
