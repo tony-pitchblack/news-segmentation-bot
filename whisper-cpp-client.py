@@ -33,7 +33,7 @@ profiling_logger = setup_file_logger(
     file_path= current_logs_path / f'profiling.log', 
     logger_name='profiling',
     log_level=logging.INFO,
-    log_prefix=True
+    log_prefix='only_ts'
 )
 
 # Set up async generator wrapper for logging time
@@ -42,6 +42,7 @@ import numpy as np
 from time import perf_counter
 
 async def timed_generator(generator):
+    # print(generator.__name__)
     async for item in generator:
         start_time = perf_counter()  # Start timing
 
@@ -51,7 +52,7 @@ async def timed_generator(generator):
         end_time = perf_counter()  # End timing
         execution_time = end_time - start_time
         # print(f"Execution time for a cycle: {execution_time:.4f} seconds")
-        profiling_logger.info(f"Execution time for a cycle: {execution_time:.4f} seconds")
+        profiling_logger.info(f"({generator.__name__}) {execution_time:.4f} seconds")
 
 # Main functions
 async def generate_segments(sentence_generator, predictor_model, buffer_size=10):
@@ -373,30 +374,41 @@ async def main(dev_run=False):
         predictor_model = dummy_load_model_from_wandb()
 
         transcript_generator = await dummy_transcribe_audio_stream(**kwargs)
+        if args.profile:
+            transcript_generator = timed_generator(transcript_generator)
+
         sentence_generator = await generate_sentences(transcript_generator)
+        if args.profile:
+            sentence_generator = timed_generator(sentence_generator)
+
         segment_generator = await generate_segments(
             sentence_generator,
             predictor_model=predictor_model,
             buffer_size=2
         )
+        if args.profile:
+            segment_generator = timed_generator(segment_generator)
     else:
         logger.info("Starting normal run.")
         
         predictor_model = load_model_from_wandb()
 
-        transcript_generator = await transcribe_audio_stream(**kwargs)
+        transcript_generator = timed_generator(await transcribe_audio_stream(**kwargs))
+        if args.profile:
+            transcript_generator = timed_generator(transcript_generator)
+
         sentence_generator = await generate_sentences(transcript_generator)
+        if args.profile:
+            sentence_generator = timed_generator(sentence_generator)
+
         segment_generator = await generate_segments(
             sentence_generator,
             predictor_model=predictor_model,
             buffer_size=10
         )
+        if args.profile:
+            segment_generator = timed_generator(segment_generator)
 
-    # Measure execution time
-    if args.profile:
-        transcript_generator = timed_generator(transcript_generator)
-        sentence_generator = timed_generator(sentence_generator)
-        segment_generator = timed_generator(segment_generator)
 
     await classify_segments(segment_generator)
 

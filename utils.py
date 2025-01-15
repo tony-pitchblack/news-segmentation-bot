@@ -110,7 +110,7 @@ class PrefixFilter(logging.Filter):
         record.msg = f"{self.prefix} {record.msg}"
         return True
 
-def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO, log_prefix=False):
+def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO, log_prefix='only_ts'):
     """
     Sets up a file logger to write raw text logs to a specified file with optional prefix.
     
@@ -123,6 +123,8 @@ def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO, log_p
     Returns:
         logging.Logger: Configured logger instance.
     """
+    assert isinstance(log_prefix, bool) or log_prefix == 'only_ts' 
+
     logger = logging.getLogger(logger_name)
     logger.setLevel(log_level)
 
@@ -132,9 +134,15 @@ def setup_file_logger(file_path, logger_name=None, log_level=logging.INFO, log_p
 
     # If log_prefix is True, add prefix similar to the vanilla setup_logger()
     if log_prefix:
-        # Standard log prefix formatter
+        formatter_string = "[%(asctime)s]"
+
+        if log_prefix != 'only_ts':
+            formatter_string += "%(levelname)s:%(funcName)s:%(lineno)d:"
+        
+        formatter_string +=  " %(message)s"
+        
         file_formatter = logging.Formatter(
-            "[%(asctime)s] %(levelname)s:%(funcName)s:%(lineno)d: %(message)s",
+            formatter_string,
             datefmt="%H:%M:%S"
         )
     else:
