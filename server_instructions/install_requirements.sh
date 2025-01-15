@@ -1,5 +1,9 @@
 # git clone https://github.com/tony-pitchblack/news-segmentation-bot
 
+# ensure prerequisites
+sudo apt install python3 python3-pip -y
+sudo apt install python3.12-venv -y
+
 # create env & install python dependencies
 python3 -m venv news-bot-env
 source news-bot-env/bin/activate
