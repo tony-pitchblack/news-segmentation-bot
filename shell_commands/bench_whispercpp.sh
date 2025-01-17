@@ -1,5 +1,9 @@
+#!/bin/bash
+
+# Default values
 language="ru"
 model="small"
+trim_duration=${1:-60}
 
 # Get stream url
 python3 ~/news-segmentation-bot/update-stream-url.py --source ntv # update STREAM_URL
@@ -10,7 +14,7 @@ cd ~/whisper.cpp
 ./models/download-ggml-model.sh $model
 
 # Download and trim the video
-ffmpeg -y -hide_banner -loglevel quiet -i "$STREAM_URL" -t 60 -ac 1 -ar 16000 -acodec pcm_s16le /tmp/whisper-live.wav
+ffmpeg -y -hide_banner -loglevel quiet -i "$STREAM_URL" -t $trim_duration -ac 1 -ar 16000 -acodec pcm_s16le /tmp/whisper-live.wav
 ffprobe /tmp/whisper-live.wav
 
 # Debug whisper-cli
