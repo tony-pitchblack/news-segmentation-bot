@@ -5,8 +5,12 @@ language="ru"
 model="small"
 trim_duration=${1:-60}
 
-# Get stream url
+# Update stream url
+source ~/news-bot-env/bin/activate
 python3 ~/news-segmentation-bot/update-stream-url.py --source ntv # update STREAM_URL
+deactivate
+
+# Load stream url
 source ~/news-segmentation-bot/configs/stream_url.env
 
 # Download model
