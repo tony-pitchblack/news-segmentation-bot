@@ -42,17 +42,38 @@ import numpy as np
 from time import perf_counter
 
 async def timed_generator(generator):
-    # print(generator.__name__)
+    generator_name = generator.__name__.ljust(25)
+
+    async_iter_start_time = perf_counter()  # Start timing
+    loop_start_time = perf_counter()
+
+    total_iter_time = 0
+
     async for item in generator:
-        start_time = perf_counter()  # Start timing
+        iter_start_time = perf_counter()  # Start timing
 
         # Yield the item
         yield item
 
-        end_time = perf_counter()  # End timing
-        execution_time = end_time - start_time
-        # print(f"Execution time for a cycle: {execution_time:.4f} seconds")
-        profiling_logger.info(f"({generator.__name__}) {execution_time:.4f} seconds")
+        # Log async iter time
+        async_iter_end_time = perf_counter()  # End timing
+        execution_time = async_iter_end_time - async_iter_start_time
+        profiling_logger.info(f"{'async iter'.ljust(12)} | {generator_name} | {execution_time:.4f} seconds")
+        async_iter_start_time = perf_counter()
+
+        # # Log inner iter time
+        # iter_end_time = perf_counter()
+        # time = iter_end_time - iter_start_time
+        # profiling_logger.info(f"{'iter'.ljust(10)} | {generator_name} | {time:.4f} seconds")
+        # total_time += time
+
+    # # Log full inner time
+    # profiling_logger.info(f"{'total'.ljust(10)} | {generator_name} | {total_time:.4f} seconds")
+
+    # Log full loop time
+    loop_end_time = perf_counter()
+    total_async_iter_time = loop_end_time - loop_start_time
+    profiling_logger.info(f"{'async total'.ljust(12)} | {generator_name} | {total_async_iter_time:.4f} seconds")
 
 # Main functions
 async def generate_segments(sentence_generator, predictor_model, buffer_size=10):
@@ -109,25 +130,33 @@ def detect_keywords(text):
     return matched_raw | matched_lemm
 
 async def classify_segments(segment_generator):
-    logger.debug('Ready to classify segments.')
-    end = seconds_since_midnight() # Let very first dummy segment end at current time
-    async for segment_sentences in segment_generator:
-        segment_duration = segment_sentences[-1]['end'] - segment_sentences[0]['start']
-        logger.debug(f'Classifying another segment with duration {segment_duration} seconds...')
-
-        first_sentence = segment_sentences[0]
-        start = end
-        end = start + first_sentence['end'] - first_sentence['start']
-
-        keywords = detect_keywords(first_sentence['text'])
-        print_sentence(first_sentence['text'], start, end, is_boundary_pred=True, keywords=keywords)
-
-        for sentence in segment_sentences[1:]:
-            keywords = detect_keywords(sentence['text'])
-            
+    async def classification_generator():
+        logger.debug('Ready to classify segments.')
+        end = seconds_since_midnight() # Let very first dummy segment end at current time
+        segment_duration = 0
+        async for segment_sentences in segment_generator:
+            first_sentence = segment_sentences[0]
             start = end
-            end = start + sentence['end'] - sentence['start']
-            print_sentence(sentence['text'], start, end, keywords=keywords)
+            duration = first_sentence['end'] - first_sentence['start']
+            end = start + duration
+            segment_duration += duration
+
+            keywords = detect_keywords(first_sentence['text'])
+            print_sentence(first_sentence['text'], start, end, is_boundary_pred=True, keywords=keywords)
+
+            for sentence in segment_sentences[1:]:
+                keywords = detect_keywords(sentence['text'])
+                
+                start = end
+                duration = first_sentence['end'] - first_sentence['start']
+                end = start + duration
+                segment_duration += duration
+                print_sentence(sentence['text'], start, end, keywords=keywords)
+
+            logger.debug(f'Classified another segment with duration {segment_duration} seconds...')
+            yield
+
+    return classification_generator()
 
 def seconds_since_midnight():
     now = datetime.now()
@@ -155,6 +184,8 @@ def print_sentence(
     message_sentence = f'{prefix} {boundary_indicators} {text}'
     print(message_sentence)
     segmentation_logger.info(message_sentence)
+    for handler in segmentation_logger.handlers:
+        handler.flush()
 
     if len(keywords) > 0:
         message_keywords = " ".join([
@@ -165,6 +196,8 @@ def print_sentence(
 
         print(message_keywords)
         segmentation_logger.info(message_keywords)
+        for handler in segmentation_logger.handlers:
+            handler.flush()
 
         # print(
         #     ' ' * len(prefix),
@@ -175,7 +208,7 @@ def print_sentence(
 
 async def dummy_transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
     logger.info("Started audio transcribation.")
-    async def generator():
+    async def transcript_generator():
         # Dummy transcribed segments with mock start and end times
         dummy_transcriptions = [
             {"text": "Hello, how are you?", "start": 0, "end": 3},
@@ -188,7 +221,7 @@ async def dummy_transcribe_audio_stream(stream_url, step_s, model, language, max
         for transcription in dummy_transcriptions:
             yield transcription
 
-    return generator()
+    return transcript_generator()
 
 async def transcribe_audio_stream(stream_url, step_s, model, language, max_duration, verbosity, print_openai, whisper_cpp_root_path):
     logger.info("Started audio transcribation.")
@@ -204,7 +237,7 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
         stderr=asyncio.subprocess.PIPE
     )
 
-    async def generator():
+    async def transcript_generator():
         # Read from stdout and stderr asynchronously
         async def read_stream(stream, log_fn=None):
             while True:
@@ -230,46 +263,52 @@ async def transcribe_audio_stream(stream_url, step_s, model, language, max_durat
         await process.wait()
 
     # Return the constructed async generator
-    return generator()
+    return transcript_generator()
 
 async def generate_sentences(transcript_generator):
     async def sentence_generator():
         logger.debug('Generating another sentence...')
         sentence_buffer = []
-        start_time = None
+        buffer_start = None
+        buffer_end = None
 
         async for transcript in transcript_generator:
             # Append new text to the buffer
-            sentence_buffer.append(transcript["text"])
+            sentence_buffer.append(transcript)
             
             # Set the start time of the first segment
-            if start_time is None:
-                start_time = transcript["start"]
+            if buffer_start is None:
+                buffer_start = transcript["start"]
+                buffer_end = buffer_start
 
             # Check if the buffer ends with a complete sentence
-            current_text = " ".join(sentence_buffer).strip()
-            if current_text.endswith((".", "!", "?")):
-                logger.debug(f'A sentence has been generated: {current_text}')
+            current_text = " ".join([transcript['text'] for sentence in sentence_buffer]).strip()
+            buffer_end += transcript['end'] - transcript['start']
 
+            if current_text.endswith((".", "!", "?")):
                 # Yield the complete sentence
-                yield {
-                    "start": start_time,
-                    "end": transcript["end"],
+                sentence = {
+                    "start": buffer_start,
+                    "end": buffer_end,
                     "text": current_text
                 }
+                buffer_duration = buffer_end - buffer_start
+                logger.debug(f'A sentence with duration {buffer_duration:.2f} seconds has been generated: {sentence}')
 
+                yield sentence
                 logger.debug('Generating another sentence...')
 
                 # Reset the buffer and start time
                 sentence_buffer = []
-                start_time = None
+                buffer_start = None
+                buffer_end = None
 
         # Handle any remaining text in the buffer after the generator ends
         if sentence_buffer:
             logger.debug(f'A sentence has been generated: {transcript["text"]}')
 
             yield {
-                "start": start_time,
+                "start": buffer_start,
                 "end": transcript["end"],
                 "text": " ".join(sentence_buffer).strip()
             }
@@ -309,7 +348,7 @@ def load_model_from_wandb(run_id='k4j7vuo7'):
 
 from dotenv import load_dotenv
 
-async def main(dev_run=False):
+async def main():
     import argparse
 
     # Create an argument parser
@@ -322,7 +361,7 @@ async def main(dev_run=False):
     parser.add_argument("--step_s", type=int, default=15, help="Step in seconds for the stream.")
     parser.add_argument("--model", type=str, default="small", help="Model to use.")
     parser.add_argument("--language", type=str, default="ru", help="Language of the stream.")
-    parser.add_argument("--max_duration", type=int, default=60, help="Maximum duration for the stream.")
+    parser.add_argument("--max_duration", type=int, default=0, help="Maximum duration for the stream.")
     parser.add_argument("--verbosity", type=int, default=0, help="Verbosity level.")
     parser.add_argument("--print_openai", type=int, default=1, help="Whether to print OpenAI output.")
     parser.add_argument("--whisper_cpp_root_path", type=str, default='../whisper.cpp', help="whisper.cpp root path.")
@@ -393,7 +432,7 @@ async def main(dev_run=False):
         
         predictor_model = load_model_from_wandb()
 
-        transcript_generator = timed_generator(await transcribe_audio_stream(**kwargs))
+        transcript_generator = await transcribe_audio_stream(**kwargs)
         if args.profile:
             transcript_generator = timed_generator(transcript_generator)
 
@@ -409,8 +448,14 @@ async def main(dev_run=False):
         if args.profile:
             segment_generator = timed_generator(segment_generator)
 
+    classification_generator = await classify_segments(segment_generator)
 
-    await classify_segments(segment_generator)
+    if args.profile:
+        classification_generator = timed_generator(classification_generator)
+
+    # run generator
+    async for _ in classification_generator:
+        pass
 
 from functools import partial
 
