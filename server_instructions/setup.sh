@@ -19,9 +19,10 @@ sudo apt install cmake
 sudo apt install g++
 git clone https://github.com/tony-pitchblack/whisper.cpp/
 
-# install NSE-TopicSegmenation dependencies
-git clone https://github.com/tony-pitchblack/NSE-TopicSegmentation.git nse_topic_segmentation
-pip install -r nse_topic_segmentation/requirements.txt
+# install NSE-TopicSegmenation
+git clone https://github.com/tony-pitchblack/NSE-TopicSegmentation.git ~/news-segmentation-bot/nse_topic_segmentation
+pip install -r ~/news-segmentation-bot/nse_topic_segmentation/requirements.txt
+cd ~/news-segmentation-bot/nse_topic_segmentation/ && git checkout continuous-model-inference
 
 # install other dependencies
 python -m spacy download ru_core_news_sm
