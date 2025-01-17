@@ -9,7 +9,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--source", "ntv",
-                "--video_id", "647059"
+                "--video_id", "660516"
             ]
         },
         {
@@ -19,7 +19,7 @@
             "program": "${workspaceFolder}/whisper-cpp-client.py", // Make sure the path is correct
             "console": "integratedTerminal",
             "args": [
-                "--dev_run", "True",
+                // "--dev_run", "True",
                 "--profile", "True",
                 // "--stream_url", "", # TODO: fix silent hang on invalid stream_url in whisper.cpp/livestream.sh
                 "--step_s",
@@ -28,9 +28,12 @@
                 "small",
                 "--language",
                 "ru",
-                // "--max_duration", "30",
-                "--max_duration",
-                "60",
+
+                "--max_duration", "30",
+                // "--max_duration", "90",
+                // "--max_duration", "120",
+                // "--max_duration", "300",
+
                 "--verbosity",
                 "0",
                 "--print_openai",
