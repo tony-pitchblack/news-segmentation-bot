@@ -18,7 +18,7 @@ ffprobe /tmp/whisper-live.wav
 
 # Debug whisper-cli
 cd whisper.cpp
-time ./build/bin/whisper-cli \
+time -f "whisper-cli time: %E" ./build/bin/whisper-cli \
   -t 12 \
   -m ./models/ggml-${model}.bin \
   -f /tmp/whisper-live.wav \
@@ -26,7 +26,7 @@ time ./build/bin/whisper-cli \
   --no-timestamps \
   # 2> /tmp/whispererr
 
-time ./build/bin/whisper-cli \
+time -f "whisper-cli time: %E" ./build/bin/whisper-cli \
   -t 8 \
   -m ./models/ggml-${model}.bin \
   -f /tmp/whisper-live.wav \
@@ -36,10 +36,14 @@ time ./build/bin/whisper-cli \
 
 # Debug whisper-cli.cpp
 cd whisper.cpp
-source ~/whisper.cpp.env
-time ./examples/livestream.sh $STREAM_URL 15 small ru 60
-time ./examples/livestream.sh $STREAM_URL 15 small ru 60 0 1
-time ./examples/livestream.sh $STREAM_URL 15 small ru 60 1 1
+alias time='/usr/bin/time'
+source ~/news-segmentation-bot/configs/stream_url.env
+time -f "livestream.sh time: %E" ./examples/livestream.sh \
+  $STREAM_URL 15 small ru 30 1 1
+time -f "livestream.sh time: %E" ./examples/livestream.sh \
+  $STREAM_URL 15 small ru 30
+time -f "livestream.sh time: %E" ./examples/livestream.sh \
+  $STREAM_URL 15 small ru 30 0 1
 
 # Debug whisper_streaming.py
 cd whisper.cpp
